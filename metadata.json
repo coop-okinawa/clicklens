@@ -1,0 +1,7 @@
+{
+  "name": "ClickLens - URL Analytics Engine",
+  "description": "A comprehensive URL shortener and analytics platform that tracks clicks, geographic data, and traffic patterns with beautiful dashboard visualizations.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
