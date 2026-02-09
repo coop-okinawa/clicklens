@@ -26,7 +26,7 @@ app.post('/api/shorten', (req, res) => {
   const code = Math.random().toString(36).substring(2, 8);
 
   db.run(
-    `INSERT INTO links (code, url) VALUES (?, ?)`,
+    'INSERT INTO links (code, url) VALUES (?, ?)',
     [code, url],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
