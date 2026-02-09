@@ -4,7 +4,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// DB
+// DB（ルートにある database.sqlite を参照）
 const db = new sqlite3.Database(path.join(__dirname, '..', 'database.sqlite'));
 
 // テーブル作成
@@ -19,8 +19,8 @@ db.run(`
 
 app.use(express.json());
 
-// dist（ルートにある）を静的配信
-app.use(express.static(path.join(__dirname, '..', 'dist')));
+// dist（client/dist）を静的配信
+app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
 
 // API: 短縮URL作成
 app.post('/api/shorten', (req, res) => {
@@ -57,9 +57,9 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// React のルーティング対応（dist/index.html を返す）
+// React のルーティング対応（client/dist/index.html を返す）
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
