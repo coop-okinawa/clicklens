@@ -1,0 +1,12 @@
+{
+  "name": "clicklens-server",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "start": "node api/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sqlite3": "^5.1.7"
+  }
+}
