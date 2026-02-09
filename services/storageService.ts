@@ -1,100 +1,105 @@
 
 import { ShortUrl, ClickRecord, AnalyticsStats } from '../types';
 
-const URLS_KEY = 'clicklens_urls_v2';
-const CLICKS_KEY = 'clicklens_clicks_v2';
-
 export const storageService = {
-  getUrls: (): ShortUrl[] => {
-    const data = localStorage.getItem(URLS_KEY);
-    return data ? JSON.parse(data) : [];
-  },
+  getStats: async (): Promise<{ urls: ShortUrl[], stats: AnalyticsStats }> => {
+    try {
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+      
+      const urls = data.urls.map((u: any) => ({
+        id: u.id,
+        originalUrl: u.original_url,
+        shortCode: u.short_code,
+        title: u.title,
+        createdAt: u.created_at
+      }));
+      
+      const clicks = data.clicks;
 
-  saveUrl: (url: ShortUrl): void => {
-    const urls = storageService.getUrls();
-    urls.unshift(url);
-    localStorage.setItem(URLS_KEY, JSON.stringify(urls));
-  },
-
-  updateUrl: (id: string, updates: Partial<ShortUrl>): void => {
-    const urls = storageService.getUrls();
-    const updated = urls.map(u => u.id === id ? { ...u, ...updates } : u);
-    localStorage.setItem(URLS_KEY, JSON.stringify(updated));
-  },
-
-  deleteUrl: (id: string): void => {
-    const urls = storageService.getUrls();
-    const filteredUrls = urls.filter(u => u.id !== id);
-    localStorage.setItem(URLS_KEY, JSON.stringify(filteredUrls));
-    
-    // 関連するクリック記録も削除
-    const clicks = storageService.getClicks();
-    const filteredClicks = clicks.filter(c => c.urlId !== id);
-    localStorage.setItem(CLICKS_KEY, JSON.stringify(filteredClicks));
-  },
-
-  getClicks: (): ClickRecord[] => {
-    const data = localStorage.getItem(CLICKS_KEY);
-    return data ? JSON.parse(data) : [];
-  },
-
-  recordClick: (click: ClickRecord): void => {
-    const clicks = storageService.getClicks();
-    clicks.push(click);
-    localStorage.setItem(CLICKS_KEY, JSON.stringify(clicks));
-  },
-
-  getStats: (): AnalyticsStats => {
-    const urls = storageService.getUrls();
-    const clicks = storageService.getClicks();
-    
-    // 日別クリック数 (直近7日間)
-    const dailyMap: Record<string, number> = {};
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      dailyMap[d.toISOString().split('T')[0]] = 0;
-    }
-
-    clicks.forEach(c => {
-      const date = c.timestamp.split('T')[0];
-      if (dailyMap[date] !== undefined) {
-        dailyMap[date]++;
+      // 日別集計 (直近7日間)
+      const dailyMap: Record<string, number> = {};
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        dailyMap[d.toISOString().split('T')[0]] = 0;
       }
-    });
-
-    const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({ 
-      date: date.substring(5), // MM-DD
-      count 
-    }));
-
-    // 国別統計
-    const countryMap: Record<string, number> = {};
-    clicks.forEach(c => {
-      countryMap[c.country] = (countryMap[c.country] || 0) + 1;
-    });
-
-    const countryStats = Object.entries(countryMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    // 最新アクティビティ (URLタイトル付き)
-    const recentClicks = [...clicks]
-      .reverse()
-      .slice(0, 10)
-      .map(c => {
-        const url = urls.find(u => u.id === c.urlId);
-        return { ...c, urlTitle: url ? url.title : 'Deleted URL' };
+      clicks.forEach((c: any) => {
+        const date = c.accessed_at.split('T')[0];
+        if (dailyMap[date] !== undefined) dailyMap[date]++;
       });
+      const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({ 
+        date: date.substring(5), 
+        count 
+      }));
 
-    return {
-      totalClicks: clicks.length,
-      uniqueUrls: urls.length,
-      topCountry: countryStats[0]?.name || 'None',
-      dailyClicks,
-      countryStats,
-      recentClicks,
-    };
+      // 国別統計
+      const countryMap: Record<string, number> = {};
+      clicks.forEach((c: any) => {
+        countryMap[c.country] = (countryMap[c.country] || 0) + 1;
+      });
+      const countryStats = Object.entries(countryMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      const recentClicks = clicks.slice(0, 10).map((c: any) => ({
+        id: c.id,
+        urlId: c.url_id,
+        shortCode: c.short_code,
+        timestamp: c.accessed_at,
+        ip: c.ip,
+        country: c.country,
+        userAgent: '',
+        urlTitle: c.urlTitle
+      }));
+
+      return {
+        urls,
+        stats: {
+          totalClicks: clicks.length,
+          uniqueUrls: urls.length,
+          topCountry: countryStats[0]?.name || 'None',
+          dailyClicks,
+          countryStats,
+          recentClicks
+        }
+      };
+    } catch (e) {
+      console.error('API Error:', e);
+      return { 
+        urls: [], 
+        stats: { totalClicks: 0, uniqueUrls: 0, topCountry: 'None', dailyClicks: [], countryStats: [], recentClicks: [] } 
+      };
+    }
+  },
+
+  saveUrl: async (url: ShortUrl): Promise<void> => {
+    await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: url.id,
+        original_url: url.originalUrl,
+        short_code: url.shortCode,
+        title: url.title,
+        created_at: url.createdAt
+      })
+    });
+  },
+
+  updateUrl: async (id: string, updates: Partial<ShortUrl>): Promise<void> => {
+    await fetch(`/api/urls/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: updates.title,
+        original_url: updates.originalUrl
+      })
+    });
+  },
+
+  deleteUrl: async (id: string): Promise<void> => {
+    await fetch(`/api/urls/${id}`, { method: 'DELETE' });
   }
 };
