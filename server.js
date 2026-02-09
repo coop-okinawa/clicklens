@@ -18,9 +18,11 @@ db.run(`
 `);
 
 app.use(express.json());
-app.use(express.static('public'));
 
-// 短縮URL作成
+// dist を静的配信
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// API: 短縮URL作成
 app.post('/api/shorten', (req, res) => {
   const { url } = req.body;
   const code = Math.random().toString(36).substring(2, 8);
@@ -36,7 +38,7 @@ app.post('/api/shorten', (req, res) => {
 });
 
 // リダイレクト
-app.get('/:code', (req, res) => {
+app.get('/r/:code', (req, res) => {
   const { code } = req.params;
 
   db.get(`SELECT url, clicks FROM links WHERE code = ?`, [code], (err, row) => {
@@ -48,11 +50,16 @@ app.get('/:code', (req, res) => {
   });
 });
 
-// ダッシュボード用データ
+// API: stats
 app.get('/api/stats', (req, res) => {
   db.all(`SELECT * FROM links ORDER BY id DESC`, [], (err, rows) => {
     res.json(rows);
   });
+});
+
+// React のルーティング対応
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
