@@ -20,6 +20,15 @@ export const Detail = ({ url, clicks }) => {
 
   return (
     <div className="space-y-8 p-6">
+
+      {/* ← 戻るボタン */}
+      <button
+        onClick={() => window.history.back()}
+        className="text-blue-600 hover:underline mb-4"
+      >
+        ← 戻る
+      </button>
+
       <header>
         <h2 className="text-2xl font-bold text-slate-900">{url.title}</h2>
         <p className="text-slate-500 mt-1">{url.originalUrl}</p>
@@ -60,7 +69,9 @@ export const Detail = ({ url, clicks }) => {
             {clicks.slice(0, 10).map((c) => (
               <li key={c.id} className="text-sm border-b pb-2">
                 <div className="font-bold">{c.country}</div>
-                <div className="text-slate-500 text-xs">{new Date(c.timestamp).toLocaleString()}</div>
+                <div className="text-slate-500 text-xs">
+                  {new Date(c.timestamp).toLocaleString()}
+                </div>
                 <div className="font-mono text-xs">{c.ip}</div>
               </li>
             ))}
