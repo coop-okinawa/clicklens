@@ -24,10 +24,8 @@ app.use(cors());
 app.use(bodyParser.json());
 
 /* -------------------------------------------------------
-   API Endpoints
+   Create short URL
 ------------------------------------------------------- */
-
-// Create short URL
 app.post('/api/shorten', async (req, res) => {
   const { id, original_url, short_code, title, created_at } = req.body;
 
@@ -40,7 +38,9 @@ app.post('/api/shorten', async (req, res) => {
   res.json({ success: true });
 });
 
-// Update URL Title
+/* -------------------------------------------------------
+   Update URL
+------------------------------------------------------- */
 app.put('/api/urls/:id', async (req, res) => {
   const { title, original_url } = req.body;
 
@@ -54,7 +54,9 @@ app.put('/api/urls/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// Delete URL
+/* -------------------------------------------------------
+   Delete URL
+------------------------------------------------------- */
 app.delete('/api/urls/:id', async (req, res) => {
   const urlId = req.params.id;
 
@@ -67,13 +69,17 @@ app.delete('/api/urls/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// Get Stats and Dashboard data
+/* -------------------------------------------------------
+   Get Stats (Dashboard)
+------------------------------------------------------- */
 app.get('/api/stats', async (req, res) => {
+  // URL一覧
   const { data: urls, error: e1 } = await supabase
     .from('urls')
     .select('*')
     .order('created_at', { ascending: false });
 
+  // クリックログ + JOIN（urls の title, original_url, short_code を取得）
   const { data: clicks, error: e2 } = await supabase
     .from('clicks')
     .select(`
@@ -82,7 +88,12 @@ app.get('/api/stats', async (req, res) => {
       country,
       accessed_at,
       url_id,
-      urls ( title )
+      urls (
+        id,
+        title,
+        original_url,
+        short_code
+      )
     `)
     .order('accessed_at', { ascending: false });
 
