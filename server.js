@@ -1,10 +1,10 @@
-
 import express from 'express';
-import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,97 +12,127 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Supabase Client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// Database Initialization
-const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) => {
-  if (err) console.error('Database opening error:', err);
-});
-
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS urls (
-    id TEXT PRIMARY KEY,
-    original_url TEXT NOT NULL,
-    short_code TEXT UNIQUE NOT NULL,
-    title TEXT,
-    created_at TEXT
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS clicks (
-    id TEXT PRIMARY KEY,
-    url_id TEXT,
-    accessed_at TEXT,
-    ip TEXT,
-    country TEXT,
-    FOREIGN KEY(url_id) REFERENCES urls(id)
-  )`);
-});
-
-// API Endpoints
+/* -------------------------------------------------------
+   API Endpoints
+------------------------------------------------------- */
 
 // Create short URL
-app.post('/api/shorten', (req, res) => {
+app.post('/api/shorten', async (req, res) => {
   const { id, original_url, short_code, title, created_at } = req.body;
-  const stmt = db.prepare("INSERT INTO urls VALUES (?, ?, ?, ?, ?)");
-  stmt.run(id, original_url, short_code, title, created_at, (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
-  stmt.finalize();
+
+  const { error } = await supabase
+    .from('urls')
+    .insert({ id, original_url, short_code, title, created_at });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
 });
 
 // Update URL Title
-app.put('/api/urls/:id', (req, res) => {
+app.put('/api/urls/:id', async (req, res) => {
   const { title, original_url } = req.body;
-  db.run("UPDATE urls SET title = ?, original_url = ? WHERE id = ?", [title, original_url, req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
+
+  const { error } = await supabase
+    .from('urls')
+    .update({ title, original_url })
+    .eq('id', req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
 });
 
 // Delete URL
-app.delete('/api/urls/:id', (req, res) => {
-  db.run("DELETE FROM clicks WHERE url_id = ?", [req.params.id], () => {
-    db.run("DELETE FROM urls WHERE id = ?", [req.params.id], (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true });
-    });
-  });
+app.delete('/api/urls/:id', async (req, res) => {
+  const urlId = req.params.id;
+
+  await supabase.from('clicks').delete().eq('url_id', urlId);
+
+  const { error } = await supabase.from('urls').delete().eq('id', urlId);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ success: true });
 });
 
 // Get Stats and Dashboard data
-app.get('/api/stats', (req, res) => {
-  db.all("SELECT * FROM urls ORDER BY created_at DESC", [], (err, urls) => {
-    if (err) return res.status(500).json({ error: err.message });
-    db.all("SELECT clicks.*, urls.title as urlTitle FROM clicks JOIN urls ON clicks.url_id = urls.id ORDER BY accessed_at DESC", [], (err, clicks) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ urls, clicks });
-    });
-  });
+app.get('/api/stats', async (req, res) => {
+  const { data: urls, error: e1 } = await supabase
+    .from('urls')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  const { data: clicks, error: e2 } = await supabase
+    .from('clicks')
+    .select('*, urls(title)')
+    .order('accessed_at', { ascending: false });
+
+  if (e1 || e2)
+    return res.status(500).json({ error: e1?.message || e2?.message });
+
+  res.json({ urls, clicks });
 });
 
 // Redirect short URL
-app.get('/r/:code', (req, res) => {
+app.get('/r/:code', async (req, res) => {
   const code = req.params.code;
-  db.get("SELECT * FROM urls WHERE short_code = ?", [code], (err, row) => {
-    if (err || !row) return res.status(404).send('URL not found');
 
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '0.0.0.0';
-    const firstOctet = parseInt(ip.toString().split('.')[0]);
-    const countries = ['Japan', 'USA', 'Germany', 'UK', 'France', 'Canada', 'Australia', 'South Korea'];
-    const country = countries[isNaN(firstOctet) ? 0 : firstOctet % countries.length];
+  const { data: rows, error } = await supabase
+    .from('urls')
+    .select('*')
+    .eq('short_code', code)
+    .limit(1);
 
-    db.run("INSERT INTO clicks (id, url_id, accessed_at, ip, country) VALUES (?, ?, ?, ?, ?)", 
-      [crypto.randomUUID(), row.id, new Date().toISOString(), ip, country]
-    );
+  if (error || !rows || rows.length === 0)
+    return res.status(404).send('URL not found');
 
-    res.redirect(row.original_url);
+  const row = rows[0];
+
+  const ip =
+    req.headers['x-forwarded-for'] ||
+    req.socket.remoteAddress ||
+    '0.0.0.0';
+
+  const firstOctet = parseInt(ip.toString().split('.')[0]);
+  const countries = [
+    'Japan',
+    'USA',
+    'Germany',
+    'UK',
+    'France',
+    'Canada',
+    'Australia',
+    'South Korea'
+  ];
+  const country =
+    countries[isNaN(firstOctet) ? 0 : firstOctet % countries.length];
+
+  await supabase.from('clicks').insert({
+    id: crypto.randomUUID(),
+    url_id: row.id,
+    accessed_at: new Date().toISOString(),
+    ip,
+    country
   });
+
+  res.redirect(row.original_url);
 });
 
-// Static files (React Build)
+/* -------------------------------------------------------
+   Static Files (React Build)
+------------------------------------------------------- */
+
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Fallback to SPA
