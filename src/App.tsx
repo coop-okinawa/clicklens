@@ -346,6 +346,7 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
                 </div>
               </div>
             )}
+            {activeTab === 'detail' && selectedUrlId && ( <Detail url={urls.find(u => u.id === selectedUrlId)} clicks={stats?.clicks.filter(c => c.urlId === selectedUrlId) || []} /> )}
 
            {activeTab.startsWith("detail-") && (() => {
   const selectedId = activeTab.replace("detail-", "");
