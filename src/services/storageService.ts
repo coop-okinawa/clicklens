@@ -62,12 +62,12 @@ export const storageService = {
       const recentClicks = clicks.slice(0, 10).map((c: any) => ({
         id: c.id,
         urlId: c.url_id,
-        shortCode: '',   // JOIN が無いので空
+        shortCode: '',
         timestamp: c.accessed_at,
         ip: c.ip,
         country: c.country,
         userAgent: '',
-        urlTitle: ''     // JOIN が無いので空
+        urlTitle: ''
       }));
 
       // -----------------------------
@@ -103,16 +103,16 @@ export const storageService = {
     }
   },
 
+  // -----------------------------
+  // ★ 短縮URL作成（修正版）
+  // -----------------------------
   saveUrl: async (url: ShortUrl): Promise<void> => {
     await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: url.id,
-        original_url: url.originalUrl,
-        short_code: url.shortCode,
-        title: url.title,
-        created_at: url.createdAt
+        originalUrl: url.originalUrl,
+        title: url.title
       })
     });
   },
