@@ -5,6 +5,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import geoip from 'geoip-lite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,7 +76,14 @@ app.get('/api/stats', async (req, res) => {
 
   const { data: clicks, error: e2 } = await supabase
     .from('clicks')
-    .select('*, urls(title)')
+    .select(`
+      id,
+      ip,
+      country,
+      accessed_at,
+      url_id,
+      urls ( title )
+    `)
     .order('accessed_at', { ascending: false });
 
   if (e1 || e2)
@@ -101,18 +109,19 @@ app.get('/r/:code', async (req, res) => {
 
   const row = rows[0];
 
-  const ip =
-    req.headers['x-forwarded-for'] ||
-    req.socket.remoteAddress ||
-    '0.0.0.0';
-  
-const country = "Japan";
-  
+  // 正しいクライアントIPの取得（Cloudflare対応）
+  const forwarded = req.headers["x-forwarded-for"];
+  const realIp = forwarded ? forwarded.split(",")[0].trim() : req.ip;
+
+  // 国判定
+  const geo = geoip.lookup(realIp);
+  const country = geo ? geo.country : "Unknown";
+
   await supabase.from('clicks').insert({
     id: crypto.randomUUID(),
     url_id: row.id,
     accessed_at: new Date().toISOString(),
-    ip,
+    ip: realIp,
     country
   });
 
