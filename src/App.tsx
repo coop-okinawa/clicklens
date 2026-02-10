@@ -26,7 +26,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { storageService } from './services/storageService';
+import { storageService } from './services/storageService.ts';
 import { generateShortCode } from './utils/geoUtils';
 import { ShortUrl, AnalyticsStats } from './types';
 import { StatsCard } from './components/StatsCard';
