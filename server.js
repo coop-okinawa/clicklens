@@ -16,7 +16,31 @@ const supabase = createClient(
 );
 
 // -----------------------------
-// /api/stats（完全版）
+// /api/shorten（元の完全版）
+// -----------------------------
+app.post('/api/shorten', async (req, res) => {
+  try {
+    const { originalUrl, title } = req.body;
+
+    const shortCode = Math.random().toString(36).substring(2, 8);
+
+    const { data, error } = await supabase
+      .from('urls')
+      .insert([{ original_url: originalUrl, short_code: shortCode, title }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ shortCode });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to shorten URL' });
+  }
+});
+
+// -----------------------------
+// /api/stats（元の完全版）
 // -----------------------------
 app.get('/api/stats', async (req, res) => {
   try {
