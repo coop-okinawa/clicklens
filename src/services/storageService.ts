@@ -7,7 +7,7 @@ export const storageService = {
       const data = await res.json();
 
       // -----------------------------
-      // URL一覧の整形
+      // URL一覧
       // -----------------------------
       const urls = data.urls.map((u: any) => ({
         id: u.id,
@@ -46,7 +46,8 @@ export const storageService = {
       // -----------------------------
       const countryMap: Record<string, number> = {};
       clicks.forEach((c: any) => {
-        countryMap[c.country] = (countryMap[c.country] || 0) + 1;
+        const country = c.country || 'Unknown';
+        countryMap[country] = (countryMap[country] || 0) + 1;
       });
 
       const countryStats = Object.entries(countryMap)
@@ -56,16 +57,19 @@ export const storageService = {
       // -----------------------------
       // 最新クリック10件（JOIN済み）
       // -----------------------------
-      const recentClicks = clicks.slice(0, 10).map((c: any) => ({
-        id: c.id,
-        urlId: c.url_id,
-        shortCode: c.urls.short_code,   // ← JOIN から取得
-        timestamp: c.accessed_at,
-        ip: c.ip,
-        country: c.country,
-        userAgent: '',
-        urlTitle: c.urls.title          // ← JOIN から取得（最重要）
-      }));
+      const recentClicks = [...clicks]
+        .sort((a, b) => new Date(b.accessed_at).getTime() - new Date(a.accessed_at).getTime())
+        .slice(0, 10)
+        .map((c: any) => ({
+          id: c.id,
+          urlId: c.url_id,
+          shortCode: c.urls.short_code,
+          timestamp: c.accessed_at,
+          ip: c.ip,
+          country: c.country,
+          userAgent: '',
+          urlTitle: c.urls.title
+        }));
 
       // -----------------------------
       // 最終 stats オブジェクト
@@ -79,7 +83,7 @@ export const storageService = {
           dailyClicks,
           countryStats,
           recentClicks,
-          clicks // ← Detail ページ用
+          clicks
         }
       };
 
