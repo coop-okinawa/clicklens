@@ -83,3 +83,6 @@ export const Detail = ({ url, clicks }) => {
     </div>
   );
 };
+
+// ★ これが今回必要だった “default export”
+export default Detail;
