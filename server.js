@@ -16,17 +16,27 @@ const supabase = createClient(
 );
 
 // -----------------------------
-// /api/shorten（元の完全版）
+// /api/shorten（完全版）
 // -----------------------------
 app.post('/api/shorten', async (req, res) => {
   try {
     const { originalUrl, title } = req.body;
 
+    if (!originalUrl) {
+      return res.status(400).json({ error: 'originalUrl is required' });
+    }
+
     const shortCode = Math.random().toString(36).substring(2, 8);
 
     const { data, error } = await supabase
       .from('urls')
-      .insert([{ original_url: originalUrl, short_code: shortCode, title }])
+      .insert([
+        {
+          original_url: originalUrl,
+          short_code: shortCode,
+          title
+        }
+      ])
       .select()
       .single();
 
@@ -34,25 +44,31 @@ app.post('/api/shorten', async (req, res) => {
 
     res.json({ shortCode });
   } catch (e) {
-    console.error(e);
+    console.error('shorten error:', e);
     res.status(500).json({ error: 'Failed to shorten URL' });
   }
 });
 
 // -----------------------------
-// /api/stats（元の完全版）
+// /api/stats（完全版）
 // -----------------------------
 app.get('/api/stats', async (req, res) => {
   try {
-    const { data: urls } = await supabase
+    // URL 一覧
+    const { data: urls, error: urlErr } = await supabase
       .from('urls')
       .select('*')
       .order('created_at', { ascending: false });
 
-    const { data: clicks } = await supabase
+    if (urlErr) throw urlErr;
+
+    // クリック一覧
+    const { data: clicks, error: clickErr } = await supabase
       .from('clicks')
       .select('*, urls(id, title, short_code, original_url)')
       .order('accessed_at', { ascending: false });
+
+    if (clickErr) throw clickErr;
 
     // 日別集計
     const dailyMap = {};
@@ -62,21 +78,26 @@ app.get('/api/stats', async (req, res) => {
       d.setDate(now.getDate() - i);
       dailyMap[d.toISOString().split('T')[0]] = 0;
     }
+
     clicks.forEach(c => {
-      const date = c.accessed_at.split('T')[0];
-      if (dailyMap[date] !== undefined) dailyMap[date]++;
+      const date = c.accessed_at?.split('T')[0];
+      if (dailyMap[date] !== undefined) {
+        dailyMap[date]++;
+      }
     });
+
     const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({
       date: date.substring(5),
       count
     }));
 
-    // 国別
+    // 国別集計
     const countryMap = {};
     clicks.forEach(c => {
       const country = c.country || 'Unknown';
       countryMap[country] = (countryMap[country] || 0) + 1;
     });
+
     const countryStats = Object.entries(countryMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
@@ -97,9 +118,8 @@ app.get('/api/stats', async (req, res) => {
         clicks
       }
     });
-
   } catch (e) {
-    console.error(e);
+    console.error('stats error:', e);
     res.status(500).json({ error: 'Failed to load stats' });
   }
 });
