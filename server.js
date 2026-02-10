@@ -105,21 +105,9 @@ app.get('/r/:code', async (req, res) => {
     req.headers['x-forwarded-for'] ||
     req.socket.remoteAddress ||
     '0.0.0.0';
-
-  const firstOctet = parseInt(ip.toString().split('.')[0]);
-  const countries = [
-    'Japan',
-    'USA',
-    'Germany',
-    'UK',
-    'France',
-    'Canada',
-    'Australia',
-    'South Korea'
-  ];
-  const country =
-    countries[isNaN(firstOctet) ? 0 : firstOctet % countries.length];
-
+  
+const country = "Japan";
+  
   await supabase.from('clicks').insert({
     id: crypto.randomUUID(),
     url_id: row.id,
