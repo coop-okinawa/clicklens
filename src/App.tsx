@@ -348,7 +348,7 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
               </div>
             )}
 
-           {activeTab.startsWith("detail-") && (() => {
+          {activeTab.startsWith("detail-") && (() => {
   const selectedId = activeTab.replace("detail-", "");
   const selectedUrl = urls.find(u => u.id === selectedId);
 
@@ -360,12 +360,13 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
       </div>
     );
   }
-return ( 
-  <Detail 
-    url={selectedUrl} 
-    clicks={stats?.clicks.filter(c => c.urlId === selectedId) || []} 
-    /> 
-);
+
+  return (
+    <Detail
+      url={selectedUrl}
+      clicks={stats?.clicks.filter(c => c.urlId === selectedId) || []}
+    />
+  );
 })()}
 
             {activeTab === 'create' && (
