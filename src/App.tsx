@@ -359,20 +359,12 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
       </div>
     );
   }
-
-  return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-2xl font-bold text-slate-900">{selectedUrl.title}</h2>
-
-      <div className="space-y-2 text-slate-700">
-        <p><span className="font-bold">元URL:</span> {selectedUrl.originalUrl}</p>
-        <p>
-          <span className="font-bold">短縮URL:</span>  
-          {window.location.origin}/r/{selectedUrl.shortCode}
-        </p>
-      </div>
-    </div>
-  );
+return ( 
+  <Detail 
+    url={selectedUrl} 
+    clicks={stats?.clicks.filter(c => c.urlId === selectedId) || []} 
+    /> 
+);
 })()}
 
             {activeTab === 'create' && (
