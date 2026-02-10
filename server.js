@@ -1,6 +1,30 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+app.use(express.json());
+
+// Supabase クライアント
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// -----------------------------
+// /api/stats（完全版）
+// -----------------------------
 app.get('/api/stats', async (req, res) => {
   try {
-    const { data: urls } = await supabase.from('urls').select('*').order('created_at', { ascending: false });
+    const { data: urls } = await supabase
+      .from('urls')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     const { data: clicks } = await supabase
       .from('clicks')
       .select('*, urls(id, title, short_code, original_url)')
@@ -33,12 +57,11 @@ app.get('/api/stats', async (req, res) => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // 最新クリック10件
+    // 最新10件
     const recentClicks = [...clicks]
       .sort((a, b) => new Date(b.accessed_at) - new Date(a.accessed_at))
       .slice(0, 10);
 
-    // ここが最重要
     res.json({
       urls,
       stats: {
@@ -55,4 +78,21 @@ app.get('/api/stats', async (req, res) => {
     console.error(e);
     res.status(500).json({ error: 'Failed to load stats' });
   }
+});
+
+// -----------------------------
+// 静的ファイル（Vite build）
+// -----------------------------
+app.use(express.static(path.join(__dirname, 'dist')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// -----------------------------
+// サーバー起動
+// -----------------------------
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
