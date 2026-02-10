@@ -27,7 +27,7 @@ import {
   Cell
 } from 'recharts';
 import { storageService } from './services/storageService.ts';
-import { generateShortCode } from './utils/geoUtils';
+import { generateShortCode } from '../utils/geoUtils.ts';
 import { ShortUrl, AnalyticsStats } from './types';
 import { StatsCard } from './components/StatsCard';
 import Detail from "./components/Detail";
