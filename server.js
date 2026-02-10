@@ -84,7 +84,9 @@ app.get('/api/stats', async (req, res) => {
   res.json({ urls, clicks });
 });
 
-// Redirect short URL
+/* -------------------------------------------------------
+   Redirect short URL (CLICK TRACKING)
+------------------------------------------------------- */
 app.get('/r/:code', async (req, res) => {
   const code = req.params.code;
 
@@ -132,7 +134,6 @@ app.get('/r/:code', async (req, res) => {
 /* -------------------------------------------------------
    Static Files (React Build)
 ------------------------------------------------------- */
-
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Fallback to SPA
