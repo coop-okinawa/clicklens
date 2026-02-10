@@ -30,7 +30,7 @@ import { storageService } from './services/storageService.ts';
 import { generateShortCode } from '../utils/geoUtils.ts';
 import { ShortUrl, AnalyticsStats } from './types';
 import { StatsCard } from './components/StatsCard';
-import Detail from "../components/Detail.tsx";
+import Detail from "./components/Detail.tsx";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
