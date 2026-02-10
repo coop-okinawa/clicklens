@@ -34,7 +34,7 @@ import { StatsCard } from './components/StatsCard';
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'create'>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [urls, setUrls] = useState<ShortUrl[]>([]);
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +97,15 @@ const App: React.FC = () => {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
-
+  
+const clickCountByUrl = stats?.recentClicks?.reduce(
+  (acc: any, c: any) => {
+    acc[c.urlId] = (acc[c.urlId] || 0) + 1;
+    return acc;
+  },
+  {}
+) || {};
+  
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Sidebar */}
@@ -230,21 +238,41 @@ const App: React.FC = () => {
                         <tr>
                           <th className="px-6 py-4">タイトル / 元URL</th>
                           <th className="px-6 py-4">短縮リンク</th>
+                           <th className="px-6 py-4">アクセス数</th>
                           <th className="px-6 py-4 text-right">操作</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {urls.length > 0 ? (
                           urls.map(u => (
-                            <tr key={u.id} className="group hover:bg-slate-50 transition-colors">
+                            <tr key={u.id} 
+                              className="group hover:bg-slate-50 transition-colors cursor-pointer" 
+                              onClick={() => setActiveTab(`detail-${u.id}`)} 
+                              >
                               <td className="px-6 py-4">
                                 {editingId === u.id ? (
                                   <div className="flex flex-col gap-2 min-w-[300px]">
                                     <input value={editFields.title} onChange={e => setEditFields({...editFields, title: e.target.value})} className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="タイトル" />
                                     <input value={editFields.originalUrl} onChange={e => setEditFields({...editFields, originalUrl: e.target.value})} className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="元のURL" />
                                     <div className="flex gap-2">
-                                      <button onClick={() => handleUpdate(u.id)} className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-700 transition-colors">保存</button>
-                                      <button onClick={() => setEditingId(null)} className="text-slate-400 text-xs hover:text-slate-600">キャンセル</button>
+                                     <button
+                                       onClick={(e) => {
+                                         e.stopPropagation(); 
+                                         handleUpdate(u.id); 
+                                       }} 
+                                       className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-700 transition-colors" 
+                                       > 
+                                       保存 
+                                     </button>
+                                     <button 
+                                       onClick={(e) => {
+                                         e.stopPropagation(); 
+                                         setEditingId(null); 
+                                       }}
+                                       className="text-slate-400 text-xs hover:text-slate-600"
+                                       >
+                                       キャンセル 
+                                     </button>
                                     </div>
                                   </div>
                                 ) : (
@@ -257,16 +285,53 @@ const App: React.FC = () => {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
                                   <span className="font-mono text-sm text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-md">{window.location.origin}/r/{u.shortCode}</span>
-                                  <button onClick={() => copyToClipboard(u.shortCode, u.id)} className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors" title="コピー">
-                                    {copiedId === u.id ? <Check size={14} className="text-green-600" /> : <Copy size={14} className="text-slate-400" />}
-                                  </button>
+                                 <button 
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     copyToClipboard(u.shortCode, u.id);
+                                   }} 
+                                   className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors" 
+                                   title="コピー"
+                                   >
+                                   {copiedId === u.id ? <Check size={14} className="text-green-600" /> : <Copy size={14} className="text-slate-400" />} 
+                                 </button>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4"> 
+                                {clickCountByUrl[u.id] || 0} 
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end gap-3">
-                                  <a href={`/r/${u.shortCode}`} target="_blank" className="bg-slate-900 text-white p-2 rounded-lg hover:bg-slate-800 transition-all shadow-md" title="開く"><ExternalLink size={16} /></a>
-                                  <button onClick={() => {setEditingId(u.id); setEditFields({title: u.title, originalUrl: u.originalUrl});}} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="編集"><Edit3 size={18} /></button>
-                                  <button onClick={() => handleDelete(u.id)} className="p-2 text-red-400 hover:text-red-600 transition-colors" title="削除"><Trash2 size={18} /></button>
+                                  <a 
+                                    href={`/r/${u.shortCode}`}
+                                    target="_blank" 
+                                    onClick={(e) => e.stopPropagation()} 
+                                    className="bg-slate-900 text-white p-2 rounded-lg hover:bg-slate-800 transition-all shadow-md" 
+                                    title="開く" 
+                                    >
+                                    <ExternalLink size={16} /> 
+                                  </a>
+                                  <button 
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      setEditingId(u.id); 
+                                      setEditFields({ title: u.title, originalUrl: u.originalUrl }); 
+                                    }} 
+                                    className="p-2 text-slate-400 hover:text-blue-600 transition-colors" 
+                                    title="編集" 
+                                    > 
+                                    <Edit3 size={18} /> 
+                                  </button>
+                                 <button 
+                                   onClick={(e) => { 
+                                     e.stopPropagation(); 
+                                     handleDelete(u.id); 
+                                   }} 
+                                   className="p-2 text-red-400 hover:text-red-600 transition-colors" 
+                                   title="削除" 
+                                   > 
+                                   <Trash2 size={18} /> 
+                                 </button>
                                 </div>
                               </td>
                             </tr>
@@ -280,6 +345,34 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+
+           {activeTab.startsWith("detail-") && (() => {
+  const selectedId = activeTab.replace("detail-", "");
+  const selectedUrl = urls.find(u => u.id === selectedId);
+
+  if (!selectedUrl) {
+    return (
+      <div className="p-6">
+        <h2 className="text-xl font-bold mb-4">詳細ページ</h2>
+        <p className="text-slate-500">データが見つかりませんでした。</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-4">
+      <h2 className="text-2xl font-bold text-slate-900">{selectedUrl.title}</h2>
+
+      <div className="space-y-2 text-slate-700">
+        <p><span className="font-bold">元URL:</span> {selectedUrl.originalUrl}</p>
+        <p>
+          <span className="font-bold">短縮URL:</span>  
+          {window.location.origin}/r/{selectedUrl.shortCode}
+        </p>
+      </div>
+    </div>
+  );
+})()}
 
             {activeTab === 'create' && (
               <div className="max-w-2xl mx-auto py-10">
