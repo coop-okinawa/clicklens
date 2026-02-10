@@ -17,7 +17,10 @@ export const storageService = {
         createdAt: u.created_at
       }));
 
-      const clicks = data.clicks;
+      // -----------------------------
+      // clicks は data.stats.clicks
+      // -----------------------------
+      const clicks = data.stats.clicks || [];
 
       // -----------------------------
       // 日別集計（直近7日）
@@ -54,17 +57,17 @@ export const storageService = {
         .sort((a, b) => b.value - a.value);
 
       // -----------------------------
-      // 最新クリック10件（JOIN済み）
+      // 最新クリック10件（JOINなし版）
       // -----------------------------
       const recentClicks = clicks.slice(0, 10).map((c: any) => ({
         id: c.id,
         urlId: c.url_id,
-        shortCode: c.urls.short_code,   // ← JOIN から取得
+        shortCode: '',   // JOIN が無いので空
         timestamp: c.accessed_at,
         ip: c.ip,
         country: c.country,
         userAgent: '',
-        urlTitle: c.urls.title          // ← JOIN から取得（最重要）
+        urlTitle: ''     // JOIN が無いので空
       }));
 
       // -----------------------------
@@ -79,7 +82,7 @@ export const storageService = {
           dailyClicks,
           countryStats,
           recentClicks,
-          clicks // ← Detail ページ用
+          clicks
         }
       };
 
