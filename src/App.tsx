@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [newUrl, setNewUrl] = useState({ title: '', original: '' });
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const [selectedUrlId, setSelectedUrlId] = useState<string | null>(null);
   const refreshData = async () => {
     setLoading(true);
     const { urls: dataUrls, stats: dataStats } = await storageService.getStats();
