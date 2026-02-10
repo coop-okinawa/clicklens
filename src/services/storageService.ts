@@ -1,12 +1,14 @@
-
-import { ShortUrl, ClickRecord, AnalyticsStats } from '../types';
+import { ShortUrl, AnalyticsStats } from '../types';
 
 export const storageService = {
   getStats: async (): Promise<{ urls: ShortUrl[], stats: AnalyticsStats }> => {
     try {
       const res = await fetch('/api/stats');
       const data = await res.json();
-      
+
+      // -----------------------------
+      // URL一覧の整形
+      // -----------------------------
       const urls = data.urls.map((u: any) => ({
         id: u.id,
         originalUrl: u.original_url,
@@ -14,46 +16,60 @@ export const storageService = {
         title: u.title,
         createdAt: u.created_at
       }));
-      
+
       const clicks = data.clicks;
 
-      // 日別集計 (直近7日間)
+      // -----------------------------
+      // 日別集計（直近7日）
+      // -----------------------------
       const dailyMap: Record<string, number> = {};
       const now = new Date();
+
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(now.getDate() - i);
         dailyMap[d.toISOString().split('T')[0]] = 0;
       }
+
       clicks.forEach((c: any) => {
         const date = c.accessed_at.split('T')[0];
         if (dailyMap[date] !== undefined) dailyMap[date]++;
       });
-      const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({ 
-        date: date.substring(5), 
-        count 
+
+      const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({
+        date: date.substring(5),
+        count
       }));
 
-      // 国別統計
+      // -----------------------------
+      // 国別集計
+      // -----------------------------
       const countryMap: Record<string, number> = {};
       clicks.forEach((c: any) => {
         countryMap[c.country] = (countryMap[c.country] || 0) + 1;
       });
+
       const countryStats = Object.entries(countryMap)
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+      // -----------------------------
+      // 最新クリック10件（JOIN済み）
+      // -----------------------------
       const recentClicks = clicks.slice(0, 10).map((c: any) => ({
         id: c.id,
         urlId: c.url_id,
-        shortCode: c.short_code,
+        shortCode: c.urls.short_code,   // ← JOIN から取得
         timestamp: c.accessed_at,
         ip: c.ip,
         country: c.country,
         userAgent: '',
-        urlTitle: c.urlTitle
+        urlTitle: c.urls.title          // ← JOIN から取得（最重要）
       }));
 
+      // -----------------------------
+      // 最終 stats オブジェクト
+      // -----------------------------
       return {
         urls,
         stats: {
@@ -62,14 +78,24 @@ export const storageService = {
           topCountry: countryStats[0]?.name || 'None',
           dailyClicks,
           countryStats,
-          recentClicks
+          recentClicks,
+          clicks // ← Detail ページ用
         }
       };
+
     } catch (e) {
       console.error('API Error:', e);
-      return { 
-        urls: [], 
-        stats: { totalClicks: 0, uniqueUrls: 0, topCountry: 'None', dailyClicks: [], countryStats: [], recentClicks: [] } 
+      return {
+        urls: [],
+        stats: {
+          totalClicks: 0,
+          uniqueUrls: 0,
+          topCountry: 'None',
+          dailyClicks: [],
+          countryStats: [],
+          recentClicks: [],
+          clicks: []
+        }
       };
     }
   },
