@@ -170,9 +170,9 @@ app.get('/r/:shortCode', async (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // -----------------------------
-// API 以外のルートはフロントへ
+// API と /r/ を除外してフロントへ
 // -----------------------------
-app.get(/^\/(?!api).*/, (req, res) => {
+app.get(/^\/(?!api|r).*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
