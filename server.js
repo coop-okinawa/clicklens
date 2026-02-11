@@ -16,7 +16,7 @@ const supabase = createClient(
 );
 
 // -----------------------------
-// /api/shorten（完全版）
+// /api/shorten
 // -----------------------------
 app.post('/api/shorten', async (req, res) => {
   try {
@@ -28,7 +28,7 @@ app.post('/api/shorten', async (req, res) => {
 
     const shortCode = Math.random().toString(36).substring(2, 8);
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('urls')
       .insert([
         {
@@ -36,9 +36,7 @@ app.post('/api/shorten', async (req, res) => {
           short_code: shortCode,
           title
         }
-      ])
-      .select()
-      .single();
+      ]);
 
     if (error) throw error;
 
@@ -50,7 +48,7 @@ app.post('/api/shorten', async (req, res) => {
 });
 
 // -----------------------------
-// /api/stats（完全版）
+// /api/stats
 // -----------------------------
 app.get('/api/stats', async (req, res) => {
   try {
@@ -141,13 +139,10 @@ app.delete('/api/urls/:id', async (req, res) => {
 });
 
 // -----------------------------
-// 短縮URLリダイレクト
+// 短縮URLリダイレクト（/r/:shortCode）
 // -----------------------------
-app.get('/:shortCode', async (req, res, next) => {
+app.get('/r/:shortCode', async (req, res, next) => {
   const { shortCode } = req.params;
-
-  // /api/... の場合はスキップ
-  if (shortCode === 'api') return next();
 
   const { data, error } = await supabase
     .from('urls')
@@ -157,7 +152,6 @@ app.get('/:shortCode', async (req, res, next) => {
 
   if (error || !data) return next();
 
-  // クリック記録
   await supabase.from('clicks').insert([
     {
       url_id: data.id,
@@ -176,7 +170,7 @@ app.get('/:shortCode', async (req, res, next) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // -----------------------------
-// API 以外のルートだけフロントに渡す（重要）
+// API 以外のルートはフロントへ
 // -----------------------------
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
