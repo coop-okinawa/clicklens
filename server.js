@@ -54,7 +54,6 @@ app.post('/api/shorten', async (req, res) => {
 // -----------------------------
 app.get('/api/stats', async (req, res) => {
   try {
-    // URL 一覧
     const { data: urls, error: urlErr } = await supabase
       .from('urls')
       .select('*')
@@ -62,7 +61,6 @@ app.get('/api/stats', async (req, res) => {
 
     if (urlErr) throw urlErr;
 
-    // クリック一覧
     const { data: clicks, error: clickErr } = await supabase
       .from('clicks')
       .select('*, urls(id, title, short_code, original_url)')
@@ -70,7 +68,6 @@ app.get('/api/stats', async (req, res) => {
 
     if (clickErr) throw clickErr;
 
-    // 日別集計
     const dailyMap = {};
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
@@ -91,7 +88,6 @@ app.get('/api/stats', async (req, res) => {
       count
     }));
 
-    // 国別集計
     const countryMap = {};
     clicks.forEach(c => {
       const country = c.country || 'Unknown';
@@ -102,7 +98,6 @@ app.get('/api/stats', async (req, res) => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // 最新10件
     const recentClicks = [...clicks]
       .sort((a, b) => new Date(b.accessed_at) - new Date(a.accessed_at))
       .slice(0, 10);
@@ -125,11 +120,65 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // -----------------------------
-// 静的ファイル（Vite build）
+// URL 削除
+// -----------------------------
+app.delete('/api/urls/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const { error } = await supabase
+      .from('urls')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('delete error:', e);
+    res.status(500).json({ error: 'Failed to delete URL' });
+  }
+});
+
+// -----------------------------
+// 短縮URLリダイレクト
+// -----------------------------
+app.get('/:shortCode', async (req, res, next) => {
+  const { shortCode } = req.params;
+
+  // /api/... の場合はスキップ
+  if (shortCode === 'api') return next();
+
+  const { data, error } = await supabase
+    .from('urls')
+    .select('*')
+    .eq('short_code', shortCode)
+    .single();
+
+  if (error || !data) return next();
+
+  // クリック記録
+  await supabase.from('clicks').insert([
+    {
+      url_id: data.id,
+      accessed_at: new Date().toISOString(),
+      country: req.headers['cf-ipcountry'] || 'Unknown',
+      ip: req.ip
+    }
+  ]);
+
+  res.redirect(data.original_url);
+});
+
+// -----------------------------
+// 静的ファイル
 // -----------------------------
 app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('*', (req, res) => {
+// -----------------------------
+// API 以外のルートだけフロントに渡す（重要）
+// -----------------------------
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
