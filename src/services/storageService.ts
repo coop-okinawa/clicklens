@@ -6,9 +6,6 @@ export const storageService = {
       const res = await fetch('/api/stats');
       const data = await res.json();
 
-      // -----------------------------
-      // URL一覧の整形
-      // -----------------------------
       const urls = data.urls.map((u: any) => ({
         id: u.id,
         originalUrl: u.original_url,
@@ -17,14 +14,8 @@ export const storageService = {
         createdAt: u.created_at
       }));
 
-      // -----------------------------
-      // clicks は data.stats.clicks
-      // -----------------------------
       const clicks = data.stats.clicks || [];
 
-      // -----------------------------
-      // 日別集計（直近7日）
-      // -----------------------------
       const dailyMap: Record<string, number> = {};
       const now = new Date();
 
@@ -44,9 +35,6 @@ export const storageService = {
         count
       }));
 
-      // -----------------------------
-      // 国別集計
-      // -----------------------------
       const countryMap: Record<string, number> = {};
       clicks.forEach((c: any) => {
         countryMap[c.country] = (countryMap[c.country] || 0) + 1;
@@ -56,9 +44,6 @@ export const storageService = {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
-      // -----------------------------
-      // 最新クリック10件（JOINなし版）
-      // -----------------------------
       const recentClicks = clicks.slice(0, 10).map((c: any) => ({
         id: c.id,
         urlId: c.url_id,
@@ -70,9 +55,6 @@ export const storageService = {
         urlTitle: ''
       }));
 
-      // -----------------------------
-      // 最終 stats オブジェクト
-      // -----------------------------
       return {
         urls,
         stats: {
@@ -104,10 +86,10 @@ export const storageService = {
   },
 
   // -----------------------------
-  // ★ 短縮URL作成（修正版）
+  // ★ 短縮URL作成（完全修正版）
   // -----------------------------
-  saveUrl: async (url: ShortUrl): Promise<void> => {
-    await fetch('/api/shorten', {
+  saveUrl: async (url: ShortUrl): Promise<string> => {
+    const res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -115,6 +97,11 @@ export const storageService = {
         title: url.title
       })
     });
+
+    const data = await res.json();
+
+    // shortCode を受け取り、/r/ 付きの短縮URLを返す
+    return `${window.location.origin}/r/${data.shortCode}`;
   },
 
   updateUrl: async (id: string, updates: Partial<ShortUrl>): Promise<void> => {
