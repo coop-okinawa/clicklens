@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-// Supabase クライアント
+// Supabase クライアント（Service Role Key 必須）
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -61,11 +61,12 @@ app.get('/api/stats', async (req, res) => {
 
     const { data: clicks, error: clickErr } = await supabase
       .from('clicks')
-      .select('*, urls(id, title, short_code, original_url)')
+      .select('*')
       .order('accessed_at', { ascending: false });
 
     if (clickErr) throw clickErr;
 
+    // 日別集計
     const dailyMap = {};
     const now = new Date();
     for (let i = 6; i >= 0; i--) {
@@ -86,6 +87,7 @@ app.get('/api/stats', async (req, res) => {
       count
     }));
 
+    // 国別集計
     const countryMap = {};
     clicks.forEach(c => {
       const country = c.country || 'Unknown';
@@ -96,6 +98,7 @@ app.get('/api/stats', async (req, res) => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
+    // 最新10件
     const recentClicks = [...clicks]
       .sort((a, b) => new Date(b.accessed_at) - new Date(a.accessed_at))
       .slice(0, 10);
@@ -139,12 +142,10 @@ app.delete('/api/urls/:id', async (req, res) => {
 });
 
 // -----------------------------
-// 短縮URLリダイレクト（/r/:shortCode）
+// 短縮URLリダイレクト（クリック記録）
 // -----------------------------
 app.get('/r/:shortCode', async (req, res, next) => {
   const { shortCode } = req.params;
-
-  console.log('=== HIT /r/:shortCode ===', shortCode);
 
   const { data, error } = await supabase
     .from('urls')
@@ -153,25 +154,23 @@ app.get('/r/:shortCode', async (req, res, next) => {
     .single();
 
   if (error || !data) {
-    console.error('URL not found or error:', error);
     return next();
   }
 
-  console.log('Found URL:', data.original_url);
-
+  // クリック記録
   const { error: insertErr } = await supabase.from('clicks').insert([
     {
       url_id: data.id,
+      short_code: data.short_code,
       accessed_at: new Date().toISOString(),
       country: req.headers['cf-ipcountry'] || 'Unknown',
-      ip: req.ip
+      ip: req.headers['x-forwarded-for'] || req.ip || '0.0.0.0',
+      user_agent: req.headers['user-agent'] || 'Unknown'
     }
   ]);
 
   if (insertErr) {
     console.error('INSERT ERROR:', insertErr);
-  } else {
-    console.log('INSERT OK');
   }
 
   res.redirect(data.original_url);
