@@ -144,15 +144,22 @@ app.delete('/api/urls/:id', async (req, res) => {
 app.get('/r/:shortCode', async (req, res, next) => {
   const { shortCode } = req.params;
 
+  console.log('=== HIT /r/:shortCode ===', shortCode);
+
   const { data, error } = await supabase
     .from('urls')
     .select('*')
     .eq('short_code', shortCode)
     .single();
 
-  if (error || !data) return next();
+  if (error || !data) {
+    console.error('URL not found or error:', error);
+    return next();
+  }
 
-  await supabase.from('clicks').insert([
+  console.log('Found URL:', data.original_url);
+
+  const { error: insertErr } = await supabase.from('clicks').insert([
     {
       url_id: data.id,
       accessed_at: new Date().toISOString(),
@@ -160,6 +167,12 @@ app.get('/r/:shortCode', async (req, res, next) => {
       ip: req.ip
     }
   ]);
+
+  if (insertErr) {
+    console.error('INSERT ERROR:', insertErr);
+  } else {
+    console.log('INSERT OK');
+  }
 
   res.redirect(data.original_url);
 });
