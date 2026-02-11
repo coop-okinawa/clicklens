@@ -7,7 +7,7 @@ export const storageService = {
       const data = await res.json();
 
       // -----------------------------
-      // URL一覧の整形 
+      // URL一覧の整形
       // -----------------------------
       const urls = data.urls.map((u: any) => ({
         id: u.id,
