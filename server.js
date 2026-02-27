@@ -9,14 +9,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-// Supabase クライアント（Service Role Key 必須）
+// Supabase クライアント
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // -----------------------------
-// /api/shorten
+// URL短縮
 // -----------------------------
 app.post('/api/shorten', async (req, res) => {
   try {
@@ -48,9 +48,9 @@ app.post('/api/shorten', async (req, res) => {
 });
 
 // -----------------------------
-// /api/stats
+// URL一覧（合算アクセス数付き）
 // -----------------------------
-app.get('/api/stats', async (req, res) => {
+app.get('/api/urls-with-clicks', async (req, res) => {
   try {
     const { data: urls, error: urlErr } = await supabase
       .from('urls')
@@ -61,67 +61,66 @@ app.get('/api/stats', async (req, res) => {
 
     const { data: clicks, error: clickErr } = await supabase
       .from('clicks')
-      .select('*')
-      .order('accessed_at', { ascending: false });
+      .select('*');
 
     if (clickErr) throw clickErr;
 
-    // 日別集計
-    const dailyMap = {};
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      dailyMap[d.toISOString().split('T')[0]] = 0;
-    }
-
-    clicks.forEach(c => {
-      const date = c.accessed_at?.split('T')[0];
-      if (dailyMap[date] !== undefined) {
-        dailyMap[date]++;
-      }
+    const result = urls.map(url => {
+      const total = clicks.filter(c => c.url_id === url.id).length;
+      return {
+        ...url,
+        totalClicks: total
+      };
     });
 
-    const dailyClicks = Object.entries(dailyMap).map(([date, count]) => ({
-      date: date.substring(5),
-      count
-    }));
-
-    // 国別集計
-    const countryMap = {};
-    clicks.forEach(c => {
-      const country = c.country || 'Unknown';
-      countryMap[country] = (countryMap[country] || 0) + 1;
-    });
-
-    const countryStats = Object.entries(countryMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    // 最新10件
-    const recentClicks = [...clicks]
-      .sort((a, b) => new Date(b.accessed_at) - new Date(a.accessed_at))
-      .slice(0, 10);
-
-    res.json({
-      urls,
-      stats: {
-        totalClicks: clicks.length,
-        uniqueUrls: urls.length,
-        dailyClicks,
-        countryStats,
-        recentClicks,
-        clicks
-      }
-    });
+    res.json(result);
   } catch (e) {
-    console.error('stats error:', e);
-    res.status(500).json({ error: 'Failed to load stats' });
+    console.error('urls-with-clicks error:', e);
+    res.status(500).json({ error: 'Failed to load URLs' });
   }
 });
 
 // -----------------------------
-// URL 削除
+// shortCode → URL情報
+// -----------------------------
+app.get('/api/url-by-short/:shortCode', async (req, res) => {
+  const { shortCode } = req.params;
+
+  const { data, error } = await supabase
+    .from('urls')
+    .select('*')
+    .eq('short_code', shortCode)
+    .single();
+
+  if (error || !data) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  res.json(data);
+});
+
+// -----------------------------
+// URL のクリックログ（全期間）
+// -----------------------------
+app.get('/api/logs/:urlId', async (req, res) => {
+  const { urlId } = req.params;
+
+  const { data, error } = await supabase
+    .from('clicks')
+    .select('*')
+    .eq('url_id', urlId)
+    .order('accessed_at', { ascending: false });
+
+  if (error) {
+    console.error('logs error:', error);
+    return res.status(500).json({ error: 'Failed to load logs' });
+  }
+
+  res.json(data);
+});
+
+// -----------------------------
+// URL削除
 // -----------------------------
 app.delete('/api/urls/:id', async (req, res) => {
   try {
@@ -157,7 +156,6 @@ app.get('/r/:shortCode', async (req, res, next) => {
     return next();
   }
 
-  // クリック記録
   const { error: insertErr } = await supabase.from('clicks').insert([
     {
       url_id: data.id,
