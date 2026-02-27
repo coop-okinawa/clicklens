@@ -354,17 +354,12 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
 
   const [logs, setLogs] = React.useState([]);
 
-  // URL変更時にログを取得
   React.useEffect(() => {
     if (!selectedUrl) return;
 
     const loadLogs = async () => {
-      // shortCode → URL情報（id取得）
       const urlData = await fetch(`/api/url-by-short/${selectedUrl.shortCode}`).then(r => r.json());
-
-      // URL ID → 全期間ログ取得
       const logData = await fetch(`/api/logs/${urlData.id}`).then(r => r.json());
-
       setLogs(logData);
     };
 
@@ -384,9 +379,11 @@ const clickCountByUrl = stats?.recentClicks?.reduce(
     <Detail
       url={selectedUrl}
       clicks={logs}
+      onBack={() => setActiveTab('list')}
     />
   );
 })()}
+
             {activeTab === 'create' && (
               <div className="max-w-2xl mx-auto py-10">
                 <div className="bg-white p-10 rounded-3xl shadow-2xl border border-slate-100">
